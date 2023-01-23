@@ -7,7 +7,8 @@ from selenium import webdriver
 from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import Select
-
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
 
 system = system()
 
@@ -16,103 +17,148 @@ logging.basicConfig(
     level=logging.INFO,
 )
 
+
 class WebDriver:
     def __init__(self):
         self._driver: webdriver.Chrome
-        self._implicit_wait_time = 20
+        self._implicit_wait_time = 60
 
     def __enter__(self) -> webdriver.Chrome:
         logging.info("Open browser")
         # some stuff that prevents us from being locked out
-        options = webdriver.ChromeOptions() 
+        options = webdriver.ChromeOptions()
         options.add_argument('--disable-blink-features=AutomationControlled')
         self._driver = webdriver.Chrome(options=options)
-        self._driver.implicitly_wait(self._implicit_wait_time) # seconds
+        self._driver.implicitly_wait(self._implicit_wait_time)  # seconds
         self._driver.execute_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
-        self._driver.execute_cdp_cmd('Network.setUserAgentOverride', {"userAgent": 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/83.0.4103.53 Safari/537.36'})
+        self._driver.execute_cdp_cmd('Network.setUserAgentOverride', {
+            "userAgent": 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/108.0.0.0 Safari/537.36'})
         return self._driver
 
     def __exit__(self, exc_type, exc_value, exc_tb):
         logging.info("Close browser")
         self._driver.quit()
 
+
 class BerlinBot:
     def __init__(self):
         self.wait_time = 20
-        self._sound_file = os.path.join(os.getcwd(), "alarm.wav")
+        self._sound_file = os.path.join(os.getcwd(), "alarm.mp3")
         self._error_message = """Für die gewählte Dienstleistung sind aktuell keine Termine frei! Bitte"""
 
     @staticmethod
     def enter_start_page(driver: webdriver.Chrome):
         logging.info("Visit start page")
         driver.get("https://otv.verwalt-berlin.de/ams/TerminBuchen")
-        driver.find_element(By.XPATH, '//*[@id="mainForm"]/div/div/div/div/div/div/div/div/div/div[1]/div[1]/div[2]/a').click()
+        WebDriverWait(driver, 20).until(EC.element_to_be_clickable(
+            (By.XPATH, '//*[@id="mainForm"]/div/div/div/div/div/div/div/div/div/div[1]/div[1]/div[2]/a'))).click()
         time.sleep(5)
 
     @staticmethod
     def tick_off_some_bullshit(driver: webdriver.Chrome):
         logging.info("Ticking off agreement")
-        driver.find_element(By.XPATH, '//*[@id="xi-div-1"]/div[4]/label[2]/p').click()
+        WebDriverWait(driver, 20).until(
+            EC.element_to_be_clickable((By.XPATH, '//*[@id="xi-div-1"]/div[4]/label[2]/p'))).click()
+        # driver.find_element(By.XPATH, '//*[@id="xi-div-1"]/div[4]/label[2]/p').click()
         time.sleep(1)
-        driver.find_element(By.ID, 'applicationForm:managedForm:proceed').click()
+        WebDriverWait(driver, 20).until(
+            EC.element_to_be_clickable((By.ID, 'applicationForm:managedForm:proceed'))).click()
+        # driver.find_element(By.ID, 'applicationForm:managedForm:proceed').click()
         time.sleep(5)
+        WebDriverWait(driver, 60).until(
+            EC.invisibility_of_element((By.CLASS_NAME, 'loading')))
 
     @staticmethod
     def enter_form(driver: webdriver.Chrome):
+        try:
+            WebDriverWait(driver, 60).until(
+                EC.invisibility_of_element((By.CLASS_NAME, 'loading')))
+        except:
+            return
         logging.info("Fill out form")
-        # select china
-        s = Select(driver.find_element(By.ID, 'xi-sel-400'))
-        s.select_by_visible_text("China")
+        # select country
+        time.sleep(2)
+        s = Select(WebDriverWait(driver, 40).until(EC.element_to_be_clickable((By.ID, 'xi-sel-400'))))
+        # s = Select(driver.find_element(By.ID, 'xi-sel-400'))
+        try:
+            s.select_by_value("166")
+        except:
+            try:
+                s.select_by_visible_text("China")
+            except:
+                return
+
+        time.sleep(1)
         # eine person
         s = Select(driver.find_element(By.ID, 'xi-sel-422'))
         s.select_by_visible_text("eine Person")
+        time.sleep(1)
         # no family
-        s = Select(driver.find_element(By.ID, 'xi-sel-427' ))
+        s = Select(driver.find_element(By.ID, 'xi-sel-427'))
         s.select_by_visible_text("nein")
-        time.sleep(5)
+        time.sleep(2)
 
         # extend stay
-        driver.find_element(By.XPATH, '//*[@id="xi-div-30"]/div[2]/label/p').click()
-        time.sleep(2)
+        WebDriverWait(driver, 20).until(
+            EC.element_to_be_clickable((By.XPATH, '//*[@id="xi-div-30"]/div[2]/label/p'))).click()
+        time.sleep(1)
 
-        # click on study group
-        driver.find_element(By.XPATH, '//*[@id="inner-479-0-2"]/div/div[1]/label/p').click()
-        time.sleep(2)
+        # click on Erwerbstätigkeit
+        WebDriverWait(driver, 20).until(
+            EC.element_to_be_clickable((By.XPATH, '//*[@id="inner-166-0-2"]/div/div[3]/label/p'))).click()
+        time.sleep(1)
 
-        # b/c of stufy
-        driver.find_element(By.XPATH, '//*[@id="inner-479-0-2"]/div/div[2]/div/div[5]/label').click()
-        time.sleep(4)
+        # b/c of blau karte
+        WebDriverWait(driver, 20).until(
+            EC.element_to_be_clickable((By.XPATH, '//*[@id="inner-166-0-2"]/div/div[4]/div/div[8]/label'))).click()
+        time.sleep(1)
 
         # submit form
-        driver.find_element(By.ID, 'applicationForm:managedForm:proceed').click()
+        WebDriverWait(driver, 20).until(
+            EC.element_to_be_clickable((By.ID, 'applicationForm:managedForm:proceed'))).click()
         time.sleep(10)
-    
+
+        try:
+            WebDriverWait(driver, 60).until(
+                EC.invisibility_of_element((By.CLASS_NAME, 'loading')))
+        except:
+            return
+
     def _success(self):
         logging.info("!!!SUCCESS - do not close the window!!!!")
         while True:
             self._play_sound_osx(self._sound_file)
             time.sleep(15)
-        
-        # todo play something and block the browser
 
+        # todo play something and block the browser
 
     def run_once(self):
         with WebDriver() as driver:
-            self.enter_start_page(driver)
-            self.tick_off_some_bullshit(driver)
-            self.enter_form(driver)
+            try:
+                self.enter_start_page(driver)
+                self.tick_off_some_bullshit(driver)
 
-            # retry submit
-            for _ in range(10):
-                if not self._error_message in driver.page_source:
-                    self._success()
-                logging.info("Retry submitting form")
-                driver.find_element(By.ID, 'applicationForm:managedForm:proceed').click()
-                time.sleep(self.wait_time)
+                # retry submit
+                for _ in range(10):
+                    url_before = driver.current_url
+                    self.enter_form(driver)
+                    WebDriverWait(driver, 20).until(EC.element_to_be_clickable((By.ID, 'footer')))
+                    url_after = driver.current_url
+                    logging.info("Checking")
+                    if not self._error_message in driver.page_source \
+                            and not 'Familiäre Gründe' in driver.page_source \
+                            and url_before != url_after:
+                        self._success()
+                    logging.info("Retry submitting form")
+                    WebDriverWait(driver, 20).until(
+                        EC.element_to_be_clickable((By.ID, 'applicationForm:managedForm:proceed'))).click()
+                    time.sleep(5)
+            except:
+                driver.switch_to.window(driver.current_window_handle)
 
     def run_loop(self):
         # play sound to check if it works
-        self._play_sound_osx(self._sound_file)
+        # self._play_sound_osx(self._sound_file)
         while True:
             logging.info("One more round")
             self.run_once()
@@ -149,6 +195,7 @@ class BerlinBot:
 
         if block:
             sleep(nssound.duration())
+
 
 if __name__ == "__main__":
     BerlinBot().run_loop()
