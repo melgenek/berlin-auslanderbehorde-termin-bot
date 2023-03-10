@@ -42,7 +42,7 @@ class WebDriver:
 
 class BerlinBot:
     def __init__(self):
-        self.wait_time = 20
+        self.wait_time = 4
         self._sound_file = os.path.join(os.getcwd(), "alarm.mp3")
         self._error_message = """Für die gewählte Dienstleistung sind aktuell keine Termine frei! Bitte"""
 
@@ -84,7 +84,7 @@ class BerlinBot:
             s.select_by_value("166")
         except:
             try:
-                s.select_by_visible_text("China")
+                s.select_by_visible_text("Ukraine")
             except:
                 return
 
@@ -138,22 +138,34 @@ class BerlinBot:
                 self.enter_start_page(driver)
                 self.tick_off_some_bullshit(driver)
 
+                url_before = driver.current_url
+                self.enter_form(driver)
+
                 # retry submit
-                for _ in range(10):
-                    url_before = driver.current_url
-                    self.enter_form(driver)
+                for _ in range(60):
                     WebDriverWait(driver, 20).until(EC.element_to_be_clickable((By.ID, 'footer')))
                     url_after = driver.current_url
                     logging.info("Checking")
                     if not self._error_message in driver.page_source \
                             and not 'Familiäre Gründe' in driver.page_source \
                             and url_before != url_after:
+                        current_window = driver.current_window_handle
+                        driver.execute_script("alert(\"Focus window\")")
+                        driver.switch_to.alert.accept()
+                        driver.switch_to.window(current_window)
+                        driver.fullscreen_window()
                         self._success()
+                    time.sleep(1)
                     logging.info("Retry submitting form")
                     WebDriverWait(driver, 20).until(
                         EC.element_to_be_clickable((By.ID, 'applicationForm:managedForm:proceed'))).click()
-                    time.sleep(5)
-            except:
+                    try:
+                        WebDriverWait(driver, 60).until(
+                            EC.invisibility_of_element((By.CLASS_NAME, 'loading')))
+                    except:
+                        return
+            except Exception as e:
+                logging.error(e)
                 driver.switch_to.window(driver.current_window_handle)
 
     def run_loop(self):
